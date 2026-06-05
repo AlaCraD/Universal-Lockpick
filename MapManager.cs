@@ -1,0 +1,580 @@
+using Godot;
+using System;
+using System.Collections.Generic;
+
+public partial class MapManager : Node
+{
+	private const string CONFIG_INI_PATH = "res://chests.ini";
+	private const string SETTINGS_INI_PATH = "user://settings.ini"; // Файл настроек программы
+
+	private LineEdit _searchField;
+	private GridContainer _chestGrid;
+	private Button _contributeButton;
+	private OptionButton _langSelector; // Выпадающий список языков
+	private Button _helpButton;         // Кнопка "?"
+	private AcceptDialog _helpWindow;   // Окно справки
+
+	// Ссылки на поля левого калькулятора для заполнения данными
+	private SpinBox _cellCountInput;
+	private LineEdit _rulesInput;
+	private Label _resultLabel;
+	private SpinBox[] _mainSpinBoxes;
+
+	private struct ChestConfig
+	{
+		public string DisplayName;
+		public int CellCount;
+		public string Rules;
+		public string StartPos;
+		public List<string> SearchTags;
+	}
+
+	private List<ChestConfig> _database = new List<ChestConfig>();
+
+	// Словарь текстов встроенной справки для окна "?" (зависит от языка)
+	private readonly Dictionary<string, Tuple<string, string>> _helpLoc = new Dictionary<string, Tuple<string, string>>
+	{
+		{ "en", new Tuple<string, string>("How to use?", "1. Run the app as Administrator. Set 'Windowed' mode in game graphics settings.\n2. In the right panel, try finding the chest by tags (e.g., 'Diego', 'Old Camp', 'Castle'). Click any chest in the list to auto-fill the combination and rules.\n3. If not found, enter the rules manually: specify the slot count and set current pins starting from 0. Define the rule.\n\nSlots are named with uppercase English letters starting from A (bottom slot). Type 'A:'. Check which slots move with slot A. If slot B moves synchronously, write 'B+'. If asynchronously, write 'B-'. Separate multiple slots with commas (,). Separate different slot rules with semicolons (;).\n\nRules template: A:B+,C-; B:D-\nDo NOT put a semicolon (;) at the very end of the rules line!\n\n4. Click 'Calculate combination' to see the solution.\n5. For auto-lockpicking, set the macro delay and click 'Start Auto-play'. Quickly switch to the game window and wait.") },
+
+{ "ru", new Tuple<string, string>("Инструкция", "1. Запустите программу от имени Администратора. В настройках игры включите режим 'В окне'.\n2. В правой части окна попробуйте найти нужный сундук по тегам (например: 'Диего', 'Старый лагерь', 'Замок'). Кликните по сундуку из списка, чтобы автоматически заполнить комбинацию и правила.\n3. Если сундука нет в базе, настройте всё вручную: укажите количество ячеек, выставьте их начальные положения (отсчет начинается с 0) и запишите правило.\n\nЯчейки строго именуются заглавными английскими буквами начиная с A (нижняя ячейка). Напишите 'A:'. Посмотрите в игре, какие ячейки двигаются вслед за A. Если ячейка B движется синхронно, укажите 'B+', если асинхронно — 'B-'. Несколько ячеек перечисляйте через запятую (,). Правила для разных ячеек разделяйте точкой с запятой (;).\n\nШаблон правил: A:B+,C-; B:D-\nВ самом конце строки точку с запятой (;) ставить НЕ НАДО!\n\n4. Нажмите 'Рассчитать комбинацию', чтобы получить решение.\n5. Для автоматического взлома задайте задержку макроса и нажмите 'Начать авто-игру'. Переключитесь на окно игры и ожидайте завершения.") },
+
+{ "pl", new Tuple<string, string>("Instrukcja", "1. Uruchom aplikację jako Administrator. W ustawieniach gry włącz tryb 'W oknie'.\n2. W prawym panelu spróbuj znaleźć skrzynię po tagach (np. 'Diego', 'Stary Obóz', 'Zamek'). Kliknij skrzynię na liście, aby automatycznie uzupełnić kombinację i reguły.\n3. Jeśli nie znaleziono, wprowadź reguły ręcznie: określ liczbę gniazd, ustaw pozycje początkowe (odliczanie od 0) i zapisz regułę.\n\nGniazda są oznaczane wielkimi angielskimi literami zaczynając od A (dolne gniazdo). Wpisz 'A:'. Sprawdź, które gniazda poruszają się za gniazdem A. Jeśli gniazdo B porusza się synchronicznie, wpisz 'B+', jeśli asynchronicznie — 'B-'. Wiele gniazd rozdzielaj przecinkami (,). Reguły dla różnych gniazd rozdzielaj średnikami (;).\n\nSzablon reguł: A:B+,C-; B:D-\nNie stawiaj średnika (;) na samym końcu linii reguł!\n\n4. Kliknij 'Oblicz kombinację', aby zobaczyć rozwiązanie.\n5. Aby uruchomić automatyczne otwieranie, ustaw opóźnienie makra i kliknij 'Uruchom Auto-play'. Przełącz się na okno gry i poczekaj.") },
+
+{ "de", new Tuple<string, string>("Anleitung", "1. Anwendung als Administrator ausführen. In den Spiel-Einstellungen den Modus 'Fenstermodus' wählen.\n2. Im rechten Bereich können Sie versuchen, die Truhe über Tags zu finden (z. B. 'Diego', 'Altes Lager', 'Burg'). Klicken Sie auf eine Truhe in der Liste, um Kombination und Regeln automatisch auszufüllen.\n3. Falls nicht vorhanden, Regeln manuell eingeben: Anzahl der Slots angeben, Startpositionen festlegen (Zählung beginnt bei 0) und Regel aufschreiben.\n\nSlots werden strikt mit englischen Großbuchstaben ab A (unterer Slot) benannt. Schreiben Sie 'A:'. Prüfen Sie im Spiel, welche Slots sich mit Slot A bewegen. Wenn sich Slot B synchron bewegt, 'B+' eingeben, wenn asynchron — 'B-'. Mehrere Slots mit Komma (,) trennen. Regeln für verschiedene Slots mit Semikolon (;) trennen.\n\nRegelvorlage: A:B+,C-; B:D-\nSetzen Sie kein Semikolon (;) ganz am Ende der Regelzeile!\n\n4. Auf 'Kombination berechnen' klicken, um die Lösung zu erhalten.\n5. Für automatischen Vandalismus die Makro-Verzögerung einstellen und auf 'Auto-play starten' klicken. Zum Spielfenster wechseln und warten.") },
+
+{ "ua", new Tuple<string, string>("Інструкція", "1. Запустіть програму від імені Адміністратора. У налаштуваннях гри увімкніть режим 'У вікні'.\n2. У правій частині вікна спробуйте знайти потрібну скриню за тегами (наприклад: 'Дієго', 'Старий табір', 'Замок'). Клікніть по скрині зі списку, щоб автоматично заповнити комбінацію та правила.\n3. Якщо скрині немає в базі, налаштуйте все вручну: вкажіть кількість комірок, виставте їхні початкові положення (відлік починається з 0) та запишіть правило.\n\nКомірки суворо іменуються великими англійськими літерами починаючи з A (нижня комірка). Напишіть 'A:'. Подивіться в грі, які комірки рухаються слідом за A. Якщо комірка B рухається синхронно, вкажіть 'B+', якщо асинхронно — 'B-'. Кілька комірок перераховуйте через кому (,). Правила для різних комірок розділяйте крапкою з комою (;).\n\nШаблон правил: A:B+,C-; B:D-\nВ самому кінці рядка крапку з комою (;) ставити НЕ ТРЕБА!\n\n4. Натисніть 'Розрахувати комбінацію', щоб отримати рішення.\n5. Для автоматичного зламу задайте затримку макросу та натисніть 'Почати авто-гру'. Переключіться на вікно гри та очікуйте завершення.") }
+
+	};
+
+	public override void _Ready()
+	{
+		_searchField = GetNode<LineEdit>("SearchField");
+		_chestGrid = GetNode<GridContainer>("ScrollContainer/ChestGrid");
+		_contributeButton = GetNode<Button>("ContributeButton");
+
+		// ИСПРАВЛЕНО: Поднимаемся на уровень вверх (к корню Control) и заходим в левый VBoxContainer
+		_langSelector = GetNode<OptionButton>("../VBoxContainer/HBoxContainerLang/OptionButton");
+		_helpButton = GetNode<Button>("../VBoxContainer/HBoxContainerLang/HelpButton");
+		// ИСПРАВЛЕНО: Находим окно помощи напрямую через корень сцены, игнорируя путаницу с VBoxContainer
+		_helpWindow = GetTree().Root.GetChild(0).GetNode<AcceptDialog>("HelpWindow");
+
+
+		// (Остальной код левой панели: _cellCountInput, _rulesInput, _mainSpinBoxes и т.д. ниже остается без изменений...)
+
+
+		_cellCountInput = GetNode<SpinBox>("../VBoxContainer/HBoxContainer/CellCountInput");
+		_rulesInput = GetNode<LineEdit>("../VBoxContainer/RulesInput");
+		_resultLabel = GetNode<Label>("../VBoxContainer/ScrollContainer/Label");
+
+		// Инициализируем массив строго по индексам [0..7]
+		_mainSpinBoxes = new SpinBox[8];
+		_mainSpinBoxes[0] = GetNode<SpinBox>("../VBoxContainer/GridContainer/A");
+		_mainSpinBoxes[1] = GetNode<SpinBox>("../VBoxContainer/GridContainer/B");
+		_mainSpinBoxes[2] = GetNode<SpinBox>("../VBoxContainer/GridContainer/C");
+		_mainSpinBoxes[3] = GetNode<SpinBox>("../VBoxContainer/GridContainer/D");
+		_mainSpinBoxes[4] = GetNode<SpinBox>("../VBoxContainer/GridContainer/E");
+		_mainSpinBoxes[5] = GetNode<SpinBox>("../VBoxContainer/GridContainer/F");
+		_mainSpinBoxes[6] = GetNode<SpinBox>("../VBoxContainer/GridContainer/G");
+		_mainSpinBoxes[7] = GetNode<SpinBox>("../VBoxContainer/GridContainer/H");
+
+		// Заполнение выпадающего списка языков
+		_langSelector.AddItem("English (EN)", 0);
+		_langSelector.AddItem("Русский (RU)", 1);
+		_langSelector.AddItem("Polski (PL)", 2);
+		_langSelector.AddItem("Deutsch (DE)", 3);
+		_langSelector.AddItem("Українська (UA)", 4);
+
+		// Привязка событий
+		_searchField.TextChanged += OnSearchTextChanged;
+		_langSelector.ItemSelected += OnLanguageSelected;
+		_helpButton.Pressed += OnHelpButtonPressed;
+
+		_contributeButton.Pressed += () => {
+			OS.ShellOpen("https://forms.gle/LtRSy7YnkKLxsHATA");
+		};
+
+		// Настройка встроенных языковых пакетов Godot (Задаем переводы для ключей KEY_...)
+		SetupTranslationServer();
+
+		// Загрузка сохраненного языка из настроек и запуск базы
+		LoadSavedLanguage();
+		LoadIniDatabase();
+	}
+
+	private void SetupTranslationServer()
+	{
+		string[] codes = { "en", "ru", "pl", "de", "ua" };
+
+		var titles = new[] { "Universal Lockpick", "Универсальная отмычка", "Uniwersalny Wytrych", "Universaldietrich", "Універсальний відмикач" };
+		var cells = new[] { "Number of cells in the lock:", "Количество ячеек в замке:", "Liczba tarcz w zamku:", "Anzahl der Scheiben im Schloss:", "Кількість комірок у замку:" };
+
+		// Массивы переводов для направлений ходов
+		var logRight = new[] { "RIGHT", "ВПРАВО", "W PRAWO", "RECHTS", "ВПРАВО" };
+		var logLeft = new[] { "LEFT", "ВЛЕВО", "W LEWO", "LINKS", "ВЛІВО" };
+
+		// Перевод финального статуса со скриншота
+		var logSuccessFinished = new[] {
+		"SUCCESS: Autoplay finished. Minimizing window...",
+		"УСПЕХ: Авто-игра успешно завершена. Сворачивание окна...",
+		"SUKCES: Autoodtwarzanie zakończone. Minimalizowanie okna...",
+		"ERFOLG: Auto-Play erfolgreich beendet. Fenster wird minimiert...",
+		"УСПІХ: Авто-гру успішно завершено. Згортання вікна..."
+	};
+
+		// Перевод сообщения об экстренной остановке кликера
+		var errEmergencyStop = new[] {
+		"AUTOPLAY EMERGENCY STOPPED BY USER!\nInputs cancelled immediately.",
+		"АВТО-ИГРА ЭКСТРЕННО ОСТАНОВЛЕНА ПОЛЬЗОВАТЕЛЕМ!\nВвод команд немедленно отменён.",
+		"AUTODODTWARZANIE ZATRZYMANE AWARYJNIE PRZEZ UŻYTKOWNIKA!\nWprowadzanie klawiszy zostało natychmiast anulowane.",
+		"AUTO-PLAY VOM BENUTZER NOTGESTOPPT!\nTastatureingaben wurden sofort abgebrochen.",
+		"АВТОГРА ЕКСТРЕНО ЗУПИНЕНА КОРИСТУВАЧЕМ!\nВведення команд негайно скасовано."
+	};
+
+		// Ошибка, если игрок нажал автоплей до расчета комбинации
+		var errCalcFirst = new[] {
+		"ERROR: Please click 'Calculate the combination' successfully before running Auto-Play!",
+		"ОШИБКА: Пожалуйста, сначала успешно рассчитайте комбинацию перед запуском авто-игры!",
+		"BŁĄD: Proszę najpierw pomyślnie obliczyć kombinację przed uruchomieniem auto-gry!",
+		"FEHLER: Bitte berechnen Sie zuerst die Kombination erfolgreich, bevor Sie Auto-Play starten!",
+		"ПОМИЛКА: Будь ласка, спочатку успішно розрахуйте комбінацію перед запуском авто-гри!"
+	};
+
+		// Статусы загрузки базы данных из правого окна
+		var dbSuccess = new[] {
+		"Configuration and initial cell values successfully loaded from database.",
+		"Конфигурация и начальные значения ячеек успешно загружены из базы данных.",
+		"Konfiguracja i wartości początkowe tarcz zostały pomyślnie załadowane z bazy danych.",
+		"Konfiguration und Anfangswerte der Scheiben erfolgreich aus der Datenbank geladen.",
+		"Конфігурацію та початкові значення комірок успішно завантажено з бази даних."
+	};
+		var dbIncomplete = new[] {
+		"[INCOMPLETE DATA] Chest: '{0}'\nStatus: PARTIAL_LOAD (Rules OK, Start Positions MISSING)\nAction: Input 0-6 values from your screen manually, then click 'Calculate'.",
+		"[НЕПОЛНЫЕ ДАННЫЕ] Сундук: '{0}'\nСтатус: ЧАСТИЧНАЯ ЗАГРУЗКА (Правила ОК, Начальные пазы ОТСУТСТВУЮТ)\nДействие: Введите цифры 0-6 со своего экрана вручную, затем нажмите 'Calculate'.",
+		"[NIEPEŁNE DANE] Skrzynia: '{0}'\nStatus: CZĘŚCIOWE ŁADOWANIE (Reguły OK, Pozycje początkowe BRAK)\nAkcja: Wprowadź numery tarcz 0-6 z ekranu ręcznie, a następnie kliknij 'Calculate'.",
+		"[UNVOLLSTÄNDIGE DATEN] Truhe: '{0}'\nStatus: TEILWEISE GELADEN (Regeln OK, Startpositionen FEHLEN)\nAktion: Geben Sie die Scheibennummern 0-6 manuell ein und klicken Sie auf 'Calculate'.",
+		"[НЕПОВНІ ДАНІ] Скриня: '{0}'\nСтатус: ЧАСТКОВЕ ЗАВАНТАЖЕННЯ (Правила ОК, Початкові пази ВІДСУТНІ)\nДія: Введіть цифри 0-6 зі свого екрана вручну, потім натисніть 'Calculate'."
+	};
+
+		// Тексты обратного отсчета автокликера
+		var logCountdown = new[] {
+		"[AUTOPLAY] Starting inputs in {0} seconds... Click 'STOP' to cancel.",
+		"[АВТОИГРА] Запуск ввода через {0} сек... Нажмите 'STOP' для отмены.",
+		"[AUTODODTWARZANIE] Rozpoczęcie wprowadzania za {0} sek... Kliknij 'STOP', aby anulować.",
+		"[AUTO-PLAY] Eingabe startet in {0} Sekunden... Klicken Sie auf 'STOP' zum Abbrechen.",
+		"[АВТОГРА] Запуск введення через {0} сек... Натисніть 'STOP' для скасування."
+	};
+		var logStep = new[] {
+		"[AUTOPLAY] Step {0}/{1}\nMoving to Cell {2}...\nClick STOP to abort.",
+		"[АВТОИГРА] Шаг {0}/{1}\nПеремещение к ячейке {2}...\nНажмите STOP для отмены.",
+		"[AUTODODTWARZANIE] Krok {0}/{1}\nPrzechodzenie do tarczy {2}...\nKliknij STOP, aby przerwać.",
+		"[AUTO-PLAY] Schritt {0}/{1}\nBewege zu Scheibe {2}...\nKlicken Sie auf STOP zum Abbrechen.",
+		"[АВТОГРА] Крок {0}/{1}\nПереміщення до комірки {2}...\nНатисніть STOP для скасування."
+	};
+
+		// Новые ключи
+		var initial = new[] {
+		"Initial positions of the grooves in the lock cells (0-6):",
+		"Начальные положения пазов в ячейках (0-6):",
+		"Początkowe pozycje rowków w tarczach (0-6):",
+		"Anfangspositionen der Nuten in den Scheiben (0-6):",
+		"Початкові положення пазів у комірках (0-6):"
+	};
+		var rulesHint = new[] {
+		"Enter the rules. Example: A:B+; B:A+,D-; D:A+",
+		"Введите правила. Пример: A:B+; B:A+,D-; D:A+",
+		"Wprowadź reguły. Przykład: A:B+; B:A+,D-; D:A+",
+		"Regeln eingeben. Beispiel: A:B+; B:A+,D-; D:A+",
+		"Введіть правила. Приклад: A:B+; B:A+,D-; D:A+"
+	};
+		var calc = new[] { "Calculate the combination", "Рассчитать комбинацию", "Oblicz kombinację", "Kombination berechnen", "Розрахувати комбінацію" };
+		var delay = new[] {
+		"Start delay before starting the autoclicker:",
+		"Начальная задержка перед запуском автокликера:",
+		"Opóźnienie przed uruchomieniem autoclickera:",
+		"Startverzögerung vor dem Autoclicker:",
+		"Початкова затримка перед запуском автоклікера:"
+	};
+
+		var auto = new[] { "Run auto-play", "Запустить авто-гру", "Uruchom auto-grę", "Auto-Play starten", "Запустити авто-гру" };
+		var search = new[] { "Chest searching", "Поиск сундука", "Wyszukiwanie skrzyń", "Truhensuche", "Пошук скрині" };
+		var hint = new[] { "Type chest location...", "Введите местоположение...", "Wpisz lokalizację skrzyni...", "Truhenstandort eingeben...", "Введіть місце розташування..." };
+		var contr = new[] {
+		"Contribute a Chest",
+		"Добавить сундук в базу",
+		"Dodaj skrzynię do bazy",
+		"Truhe zur Datenbank hinzufügen",
+		"Додати скриню до бази"
+	};
+
+
+		// Массивы переводов для системных логов и ошибок
+		var errNoSolution = new[] {
+		"ERROR: No safe combination exists for this layout!",
+		"ОШИБКА: Математического решения для текущей раскладки не существует!",
+		"BŁĄD: Nie istnieje bezpieczna kombinacja dla tego układu!",
+		"FEHLER: Für dieses Layout existiert keine sichere Kombination!",
+		"ПОМИЛКА: Математичного рішення для поточної розкладки не існує!"
+	};
+
+		var errRulesEmpty = new[] {
+		"ERROR: Rules string is empty.",
+		"ОШИБКА: Строка правил пуста.",
+		"BŁĄD: Ciąg reguł jest pusty.",
+		"FEHLER: Die Regelzeichenfolge ist leer.",
+		"ПОМИЛКА: Рядок правил порожній."
+	};
+
+		var errNoGame = new[] {
+		"ERROR: Process 'G1R-Win64-Shipping.exe' was not found!",
+		"ОШИБКА: Игровой процесс 'G1R-Win64-Shipping.exe' не найден!",
+		"BŁĄD: Proces gry 'G1R-Win64-Shipping.exe' nie został znaleziony!",
+		"FEHLER: Spielprozess 'G1R-Win64-Shipping.exe' wurde nicht gefunden!",
+		"ПОМИЛКА: Ігровий процес 'G1R-Win64-Shipping.exe' не знайдено!"
+	};
+
+		var logPlan = new[] {
+		"LOCKPICK COMBINATION PLAN",
+		"ПЛАН ВЗЛОМА ЗАМКА",
+		"PLAN WYTRYCHU",
+		"DIETRICH-KOMBINATIONSPLAN",
+		"ПЛАН ВІДМИКАННЯ ЗАМКУ"
+	};
+
+		var logSuccess = new[] {
+		"SUCCESS: Autoplay finished. Minimizing window...",
+		"УСПЕХ: Авто-игра завершена. Сворачивание окна...",
+		"SUKCES: Autoodtwarzanie zakończone. Minimalizowanie okna...",
+		"ERFOLG: Auto-Play beendet. Fenster wird minimiert...",
+		"УСПІХ: Авто-гру завершено. Згортання вікна..."
+	};
+
+		// Перевод сообщения о поиске игрового процесса в ОС
+		var logSearchProcess = new[] {
+		"[AUTOPLAY] Searching for game process: '{0}.exe'...\n",
+		"[АВТОИГРА] Поиск игрового процесса: '{0}.exe'...\n",
+		"[AUTODODTWARZANIE] Szukanie procesu gry: '{0}.exe'...\n",
+		"[AUTO-PLAY] Spielprozess wird gesucht: '{0}.exe'...\n",
+		"[АВТОГРА] Пошук ігрового процесу: '{0}.exe'...\n"
+	};
+
+		// Перевод сообщения об успешном фокусе окна игры
+		var logWindowFocused = new[] {
+		"Gothic Remake window focused! Countdown started...\n",
+		"Окно Gothic Remake сфокусировано! Обратный отсчёт запущен...\n",
+		"Okno Gothic Remake zostało sfocusowane! Odliczanie rozpoczęte...\n",
+		"Gothic Remake-Fenster fokussiert! Countdown gestartet...\n",
+		"Вікно Gothic Remake сфокусовано! Зворотний відлік запущено...\n"
+	};
+
+		// Перевод ошибки скрытого окна (слепой режим)
+		var errBlindMode = new[] {
+		"ERROR: Process '{0}.exe' found, but window is hidden!\n[SYSTEM] Continuing in blind mode. Click on the game window now...",
+		"ОШИБКА: Процесс '{0}.exe' найден, но его окно скрыто!\n[СИСТЕМА] Продолжение в слепом режиме. Пожалуйста, кликните по окну игры сейчас...",
+		"BŁĄD: Proces '{0}.exe' został znaleziony, ale jego okno jest ukryte!\n[SYSTEM] Kontynuacja в trybie ślepym. Kliknij teraz na okno gry...",
+		"FEHLER: Prozess '{0}.exe' gefunden, aber das Fenster ist ausgeblendet!\n[SYSTEM] Weiter im Blindmodus. Klicken Sie jetzt auf das Spielfenster...",
+		"ПОМИЛКА: Процес '{0}.exe' знайдено, але його вікно приховано!\n[СИСТЕМА] Продовження в сліпому режимі. Будь ласка, клікніть по вікну гри зараз..."
+	};
+
+		// Перевод заголовка успешно сгенерированного плана взлома
+		var logPlanGenerated = new[] {
+		"COMBINATION PLAN GENERATED! (Steps: {0})\n",
+		"ПЛАН КОМБИНАЦИИ СГЕНЕРИРОВАН! (Шагов: {0})\n",
+		"PLAN KOMBINACJI WYGENEROWANY! (Kroków: {0})\n",
+		"KOMBINATIONSPLAN GENERIERT! (Schritte: {0})\n",
+		"ПЛАН КОМБІНАЦІЇ ЗГЕНЕРОВАНО! (Кроків: {0})\n"
+	};
+
+		for (int i = 0; i < codes.Length; i++)
+		{
+			Translation tx = new Translation();
+			tx.Locale = codes[i];
+			tx.AddMessage("KEY_TITLE", titles[i]);
+			tx.AddMessage("KEY_CELLS", cells[i]);
+			tx.AddMessage("KEY_INITIAL", initial[i]);       // Добавлено
+			tx.AddMessage("KEY_RULES_HINT", rulesHint[i]); // Добавлено
+			tx.AddMessage("KEY_CALCULATE", calc[i]);
+			tx.AddMessage("KEY_DELAY", delay[i]);           // Добавлено
+			tx.AddMessage("KEY_AUTOPLAY", auto[i]);
+			tx.AddMessage("KEY_SEARCH_TITLE", search[i]);
+			tx.AddMessage("KEY_SEARCH_HINT", hint[i]);
+			tx.AddMessage("KEY_CONTRIBUTE", contr[i]);
+
+			// 🔥 ИСПРАВЛЕНО: Строку Translation tx = new Translation(); мы отсюда УБРАЛИ.
+			// Просто дописываем новые сообщения в уже существующий объект tx:
+			tx.AddMessage("ERR_NO_SOLUTION", errNoSolution[i]);
+			tx.AddMessage("ERR_RULES_EMPTY", errRulesEmpty[i]);
+			tx.AddMessage("ERR_NO_GAME", errNoGame[i]);
+			tx.AddMessage("LOG_PLAN", logPlan[i]);
+			tx.AddMessage("LOG_SUCCESS", logSuccess[i]);
+
+			tx.AddMessage("LOG_RIGHT", logRight[i]);
+			tx.AddMessage("LOG_LEFT", logLeft[i]);
+			tx.AddMessage("DB_SUCCESS", dbSuccess[i]);
+			tx.AddMessage("DB_INCOMPLETE", dbIncomplete[i]);
+			tx.AddMessage("LOG_COUNTDOWN", logCountdown[i]);
+			tx.AddMessage("LOG_STEP", logStep[i]);
+
+			tx.AddMessage("LOG_SUCCESS_FINISHED", logSuccessFinished[i]);
+			tx.AddMessage("ERR_CALC_FIRST", errCalcFirst[i]);
+			tx.AddMessage("ERR_EMERGENCY_STOP", errEmergencyStop[i]);
+			tx.AddMessage("LOG_SEARCH_PROCESS", logSearchProcess[i]);
+
+			tx.AddMessage("LOG_WINDOW_FOCUSED", logWindowFocused[i]);
+			tx.AddMessage("ERR_BLIND_MODE", errBlindMode[i]);
+			tx.AddMessage("LOG_PLAN_GENERATED", logPlanGenerated[i]);
+
+			// Эта строчка у вас тоже уже была в самом конце оригинального цикла, 
+			// поэтому вторую такую же из моего куска кода нужно удалить:
+			TranslationServer.AddTranslation(tx);
+		}
+	}
+
+
+	private void LoadSavedLanguage()
+	{
+		var config = new ConfigFile();
+		// Загружаем глобальный файл настроек программы
+		Error err = config.Load(SETTINGS_INI_PATH);
+		string lang = "en"; // Язык по умолчанию, если файла настроек еще нет
+
+		if (err == Error.Ok)
+		{
+			// Читаем сохраненный язык из секции [General]
+			lang = (string)config.GetValue("General", "language", "en");
+		}
+
+		// Принудительно выставляем правильный индекс в выпадающем списке интерфейса
+		switch (lang.ToLower())
+		{
+			case "en": _langSelector.Selected = 0; break;
+			case "ru": _langSelector.Selected = 1; break;
+			case "pl": _langSelector.Selected = 2; break;
+			case "de": _langSelector.Selected = 3; break;
+			case "ua": _langSelector.Selected = 4; break;
+			default: _langSelector.Selected = 0; break;
+		}
+
+		// Переключаем системную локализацию Godot на сохраненный язык
+		TranslationServer.SetLocale(lang);
+	}
+
+	private void OnLanguageSelected(long index)
+	{
+		string lang = "en";
+		switch (index)
+		{
+			case 0: lang = "en"; break;
+			case 1: lang = "ru"; break;
+			case 2: lang = "pl"; break;
+			case 3: lang = "de"; break;
+			case 4: lang = "ua"; break;
+		}
+
+		// 1. Мгновенно меняем язык интерфейса во всей программе
+		TranslationServer.SetLocale(lang);
+
+		// 2. ЗАПИСЫВАЕМ ВЫБОР В SETTINGS.INI (Автосохранение)
+		var config = new ConfigFile();
+		config.Load(SETTINGS_INI_PATH); // Подгружаем текущие настройки (например, тайминги автокликера)
+		config.SetValue("General", "language", lang); // Добавляем или перезаписываем язык
+		config.Save(SETTINGS_INI_PATH); // Сохраняем файл на диск
+	}
+
+	private void OnHelpButtonPressed()
+	{
+		string currentLocale = TranslationServer.GetLocale();
+		if (!_helpLoc.ContainsKey(currentLocale)) currentLocale = "en";
+
+		// Заполняем всплывающее окно текстом на текущем выбранном языке
+		_helpWindow.Title = _helpLoc[currentLocale].Item1;
+		_helpWindow.DialogText = _helpLoc[currentLocale].Item2;
+		_helpWindow.PopupCentered(); // Показываем окно по центру экрана
+	}
+
+
+	//КОНЕЦ ЛОКАЛИЗАЦИИ
+
+
+	private void LoadIniDatabase()
+	{
+		_database.Clear();
+		string globalPath = ProjectSettings.GlobalizePath(CONFIG_INI_PATH);
+
+		if (!System.IO.File.Exists(globalPath))
+		{
+			GD.PrintErr("[DATABASE ERROR] chests.ini not found!");
+			return;
+		}
+
+		string[] lines = System.IO.File.ReadAllLines(globalPath);
+
+		ChestConfig currentChest = new ChestConfig();
+		bool hasChest = false;
+
+		foreach (string rawLine in lines)
+		{
+			// Вычищаем мусорные кавычки Windows по краям строки
+			string line = rawLine.Trim();
+			if (line.StartsWith("\"") && line.EndsWith("\"") && line.Length >= 2)
+			{
+				line = line.Substring(1, line.Length - 2).Trim();
+			}
+
+			// Убираем сдвоенные кавычки и подчищаем края от случайных остатков
+			line = line.Replace("\"\"", "\"").Trim();
+			line = line.Trim('"');
+
+			if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#")) continue;
+
+			// Распознаем секцию, даже если Windows вшила кавычки внутрь скобок
+			if (line.StartsWith("[") && line.EndsWith("]"))
+			{
+				if (hasChest) _database.Add(currentChest);
+
+				currentChest = new ChestConfig();
+				currentChest.SearchTags = new List<string>();
+				hasChest = true;
+				continue;
+			}
+
+			if (!hasChest) continue;
+
+			string[] kv = line.Split('=', 2);
+			if (kv.Length != 2) continue;
+
+			string key = kv[0].Trim().ToLower().Trim('"');
+			string val = kv[1].Trim().Trim('"'); // ЖЕСТКАЯ ОЧИСТКА: Срезаем кавычки со значений
+
+			switch (key)
+			{
+				case "name":
+					currentChest.DisplayName = val;
+					break;
+				case "cells":
+					int.TryParse(val, out currentChest.CellCount);
+					break;
+				case "rules":
+					currentChest.Rules = val;
+					break;
+				case "start_pos":
+					currentChest.StartPos = val;
+					break;
+				case "tags":
+					string[] tags = val.Split(',');
+					foreach (string t in tags)
+					{
+						// Чистим каждый тег от случайных внутренних кавычек
+						string cleanTag = t.Trim().ToLower().Trim('"');
+						if (!string.IsNullOrWhiteSpace(cleanTag))
+							currentChest.SearchTags.Add(cleanTag);
+					}
+					break;
+			}
+		}
+
+		if (hasChest) _database.Add(currentChest);
+
+		// Добавляем очищенные имена в теги для сквозного поиска
+		for (int i = 0; i < _database.Count; i++)
+		{
+			var chest = _database[i];
+			if (!string.IsNullOrEmpty(chest.DisplayName))
+			{
+				string cleanNameTag = chest.DisplayName.ToLower().Trim('"');
+				if (!chest.SearchTags.Contains(cleanNameTag))
+				{
+					chest.SearchTags.Add(cleanNameTag);
+				}
+			}
+		}
+
+		GD.Print($"[DATABASE SUCCESS] Smart-loaded {_database.Count} chests from chests.ini!");
+		FilterAndGenerateButtons("");
+	}
+
+	private void OnSearchTextChanged(string newText)
+	{
+		FilterAndGenerateButtons(newText);
+	}
+
+	private void FilterAndGenerateButtons(string query)
+	{
+		foreach (Node child in _chestGrid.GetChildren())
+		{
+			child.QueueFree();
+		}
+
+		string cleanQuery = query.Trim().ToLower();
+
+		foreach (ChestConfig chest in _database)
+		{
+			bool isMatch = string.IsNullOrEmpty(cleanQuery);
+
+			if (!isMatch)
+			{
+				foreach (string tag in chest.SearchTags)
+				{
+					if (tag.Contains(cleanQuery))
+					{
+						isMatch = true;
+						break;
+					}
+				}
+			}
+
+			if (isMatch)
+			{
+				Button btn = new Button();
+				btn.Text = chest.DisplayName;
+				btn.CustomMinimumSize = new Vector2(190, 50);
+				btn.ClipText = true;
+				btn.AutowrapMode = TextServer.AutowrapMode.WordSmart; // Перенос строк на кнопках
+				btn.AddThemeColorOverride("font_color", new Color(0.9f, 0.9f, 0.7f));
+
+				btn.Pressed += () => OnChestButtonClicked(chest);
+
+				_chestGrid.AddChild(btn);
+			}
+		}
+	}
+
+	private void OnChestButtonClicked(ChestConfig chest)
+	{
+		_resultLabel.RemoveThemeColorOverride("font_color");
+		_resultLabel.Text = "";
+
+		if (string.IsNullOrWhiteSpace(chest.Rules) || chest.Rules.ToLower() == "none")
+		{
+			_resultLabel.AddThemeColorOverride("font_color", new Color(1, 0.3f, 0.3f));
+			_resultLabel.Text = $"[DATABASE ERROR] Chest: '{chest.DisplayName}'\n" +
+							   "Status: CRITICAL_MISSING_RULES\n" +
+							   "Action: Calculation blocked. Manual rules entry required.";
+			_rulesInput.Text = "";
+			return;
+		}
+
+		_cellCountInput.Value = chest.CellCount;
+
+		var rootNode = GetTree().Root.GetChild(0);
+		rootNode.Call("UpdateVisibleSpinBoxes", chest.CellCount);
+
+		_rulesInput.Text = chest.Rules;
+
+		string logText = "Please look at your screen and fill current values manually.";
+
+		// Вместо жесткого текста FULL_DATA_LOADED и INCOMPLETE DATA:
+		if (!string.IsNullOrEmpty(chest.StartPos) && chest.StartPos.ToLower() != "none")
+		{
+			// ... (код заполнения спинбоксов) ...
+			_resultLabel.AddThemeColorOverride("font_color", new Color(0.4f, 1, 0.4f));
+			_resultLabel.Text = $"[DATABASE SUCCESS] Active: '{chest.DisplayName}'\n\n{TranslationServer.Translate("DB_SUCCESS")}";
+		}
+		else
+		{
+			_resultLabel.AddThemeColorOverride("font_color", new Color(1, 0.6f, 0.2f));
+			// Используем string.Format, чтобы подставить имя конкретного сундука в перевод
+			string pattern = TranslationServer.Translate("DB_INCOMPLETE");
+			_resultLabel.Text = string.Format(pattern, chest.DisplayName);
+		}
+	}
+}
