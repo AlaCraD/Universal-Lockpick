@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading; // Добавлено пространство имен для токенов отмены
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Globalization;
 
 public partial class PuzzleSolver : Control
 {
@@ -455,6 +456,28 @@ public partial class PuzzleSolver : Control
 	{
 		for (int i = 0; i < _spinBoxes.Length; i++)
 			if (_spinBoxes[i] != null) _spinBoxes[i].Visible = (i < count);
+	}
+
+	private void UpdateStartPos(int count, string startPos)
+	{
+		// Защита: если строка пустая или null, сразу выходим, чтобы не плодить ошибки
+		if (string.IsNullOrWhiteSpace(startPos)) return;
+
+		string[] pos = startPos.Split(',');
+		GD.Print(pos);
+
+		// Добавляем условие i < pos.Length, чтобы цикл никогда не запрашивал несуществующие индексы
+		for (int i = 0; i < _spinBoxes.Length && i < pos.Length; i++)
+		{
+			if (_spinBoxes[i] != null)
+			{
+				// Используем TryParse для максимальной надежности на случай, если пользователь введет букву вместо цифры
+				if (double.TryParse(pos[i], CultureInfo.InvariantCulture, out double value))
+				{
+					_spinBoxes[i].Value = value;
+				}
+			}
+		}
 	}
 
 	private bool IsTargetReached(int[] state, int[] target, int count)
