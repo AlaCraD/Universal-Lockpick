@@ -253,8 +253,9 @@ public partial class PuzzleSolver : Control
 		for (int col = 0; col < activeCount; col++)
 			AddMatrixHeader($"П{col + 1}");
 
-		for (int row = 0; row < activeCount; row++)
+		for (int displayRow = activeCount - 1; displayRow >= 0; displayRow--)
 		{
+			int row = displayRow;
 			AddMatrixHeader($"П{row + 1} ->");
 
 			for (int col = 0; col < activeCount; col++)
