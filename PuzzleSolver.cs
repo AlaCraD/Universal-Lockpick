@@ -34,6 +34,9 @@ public partial class PuzzleSolver : Control
 	private const byte VK_A = 0x41; private const byte VK_D = 0x44;
 
 	private SpinBox[] _spinBoxes;
+	private HBoxContainer[] _startPositionRows;
+	private CheckBox[,] _startPositionButtons;
+	private bool _isSyncingStartPositionUi = false;
 	private SpinBox _cellCountInput;
 	private LineEdit _rulesInput;
 	private Button _calcButton;
@@ -71,6 +74,7 @@ public partial class PuzzleSolver : Control
 		_spinBoxes[5] = GetNode<SpinBox>("VBoxContainer/GridContainer/F");
 		_spinBoxes[6] = GetNode<SpinBox>("VBoxContainer/GridContainer/G");
 		_spinBoxes[7] = GetNode<SpinBox>("VBoxContainer/GridContainer/H");
+		BuildStartPositionSelector();
 
 		// (Остальной код инициализации кнопок, лейблов и задержек ниже остается без изменений...)
 		_cellCountInput = GetNode<SpinBox>("VBoxContainer/HBoxContainer/CellCountInput");
@@ -117,6 +121,89 @@ public partial class PuzzleSolver : Control
 
 		// Разрешаем текстовому полю динамически увеличивать свою высоту при переносе строк
 		_resultLabel.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+	}
+
+	private void BuildStartPositionSelector()
+	{
+		var grid = GetNode<GridContainer>("VBoxContainer/GridContainer");
+		grid.Columns = 1;
+		grid.AddThemeConstantOverride("h_separation", 0);
+		grid.AddThemeConstantOverride("v_separation", 1);
+
+		_startPositionRows = new HBoxContainer[8];
+		_startPositionButtons = new CheckBox[8, 7];
+		ButtonGroup[] groups = new ButtonGroup[8];
+
+		for (int i = 0; i < _spinBoxes.Length; i++)
+		{
+			if (_spinBoxes[i] == null) continue;
+
+			_spinBoxes[i].Visible = false;
+			int capturedIndex = i;
+			_spinBoxes[i].ValueChanged += _ => SyncStartPositionRowFromValue(capturedIndex);
+			groups[i] = new ButtonGroup();
+		}
+
+		for (int slotIndex = _spinBoxes.Length - 1; slotIndex >= 0; slotIndex--)
+		{
+			HBoxContainer row = new HBoxContainer();
+			row.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
+			row.CustomMinimumSize = new Vector2(0, 28);
+			row.AddThemeConstantOverride("separation", 1);
+
+			Label label = new Label();
+			label.Text = $"П{slotIndex + 1}";
+			label.CustomMinimumSize = new Vector2(28, 0);
+			label.HorizontalAlignment = HorizontalAlignment.Center;
+			label.VerticalAlignment = VerticalAlignment.Center;
+			row.AddChild(label);
+
+			for (int value = 0; value <= 6; value++)
+			{
+				int capturedSlot = slotIndex;
+				int capturedValue = value;
+				CheckBox button = new CheckBox();
+				button.Text = value.ToString();
+				button.ButtonGroup = groups[slotIndex];
+				button.CustomMinimumSize = new Vector2(42, 0);
+				button.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
+				button.Pressed += () => SetStartPositionValue(capturedSlot, capturedValue);
+				row.AddChild(button);
+				_startPositionButtons[slotIndex, value] = button;
+			}
+
+			_startPositionRows[slotIndex] = row;
+			grid.AddChild(row);
+		}
+
+		for (int i = 0; i < _spinBoxes.Length; i++)
+			SyncStartPositionRowFromValue(i);
+	}
+
+	private void SetStartPositionValue(int slotIndex, int value)
+	{
+		if (_isSyncingStartPositionUi || slotIndex < 0 || slotIndex >= _spinBoxes.Length || _spinBoxes[slotIndex] == null)
+			return;
+
+		_spinBoxes[slotIndex].Value = value;
+		SyncStartPositionRowFromValue(slotIndex);
+	}
+
+	private void SyncStartPositionRowFromValue(int slotIndex)
+	{
+		if (_startPositionButtons == null || slotIndex < 0 || slotIndex >= _spinBoxes.Length || _spinBoxes[slotIndex] == null)
+			return;
+
+		int value = Math.Clamp((int)_spinBoxes[slotIndex].Value, 0, 6);
+		_isSyncingStartPositionUi = true;
+
+		for (int i = 0; i <= 6; i++)
+		{
+			CheckBox button = _startPositionButtons[slotIndex, i];
+			if (button != null) button.ButtonPressed = i == value;
+		}
+
+		_isSyncingStartPositionUi = false;
 	}
 
 	private void BuildLinkMatrixEditor()
@@ -261,7 +348,10 @@ public partial class PuzzleSolver : Control
 	{
 		int[] htmlPositionsConvertedToSolver = { 1, 2, 3, 5, 5, 6 };
 		for (int i = 0; i < htmlPositionsConvertedToSolver.Length && i < _spinBoxes.Length; i++)
+		{
 			_spinBoxes[i].Value = htmlPositionsConvertedToSolver[i];
+			SyncStartPositionRowFromValue(i);
+		}
 	}
 
 	private void SyncRulesTextFromLinkMatrix()
@@ -709,7 +799,10 @@ public partial class PuzzleSolver : Control
 	private void UpdateVisibleSpinBoxes(int count)
 	{
 		for (int i = 0; i < _spinBoxes.Length; i++)
-			if (_spinBoxes[i] != null) _spinBoxes[i].Visible = (i < count);
+		{
+			if (_spinBoxes[i] != null) _spinBoxes[i].Visible = false;
+			if (_startPositionRows != null && _startPositionRows[i] != null) _startPositionRows[i].Visible = (i < count);
+		}
 	}
 
 	private void UpdateStartPos(int count, string startPos)
@@ -729,6 +822,7 @@ public partial class PuzzleSolver : Control
 				if (double.TryParse(pos[i], CultureInfo.InvariantCulture, out double value))
 				{
 					_spinBoxes[i].Value = value;
+					SyncStartPositionRowFromValue(i);
 				}
 			}
 		}
