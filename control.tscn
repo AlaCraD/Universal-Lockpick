@@ -165,9 +165,9 @@ layout_mode = 2
 placeholder_text = "KEY_SEARCH_HINT"
 
 [node name="ScrollContainer" type="ScrollContainer" parent="VBoxContainer2"]
-custom_minimum_size = Vector2(0, 400)
+custom_minimum_size = Vector2(0, 608.52)
 layout_mode = 2
 
 [node name="ChestGrid" type="GridContainer" parent="VBoxContainer2/ScrollContainer"]
 layout_mode = 2
-columns = 2
+columns = 3
