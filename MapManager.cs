@@ -8,11 +8,18 @@ public partial class MapManager : Node
 	private const string SETTINGS_INI_PATH = "user://settings.ini"; // Файл настроек программы
 
 	private LineEdit _searchField;
+	private LineEdit _chestDescriptionInput;
 	private GridContainer _chestGrid;
 	private Button _contributeButton;
 	private OptionButton _langSelector; // Выпадающий список языков
 	private Button _helpButton;         // Кнопка "?"
 	private AcceptDialog _helpWindow;   // Окно справки
+
+	private const string CONTRIBUTE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfmbioj1F5C-LMalOMSWay6Ba8B5y2ori4qH20JDPiNXdx0UA/viewform";
+	private const string FORM_ENTRY_CHEST_DESCRIPTION = "entry.1484895692";
+	private const string FORM_ENTRY_CELL_COUNT = "entry.1053036920";
+	private const string FORM_ENTRY_START_POS = "entry.807992425";
+	private const string FORM_ENTRY_RULES = "entry.1620143823";
 
 	// Ссылки на поля левого калькулятора для заполнения данными
 	private SpinBox _cellCountInput;
@@ -49,6 +56,7 @@ public partial class MapManager : Node
 	public override void _Ready()
 	{
 		_searchField = GetNode<LineEdit>("SearchField");
+		_chestDescriptionInput = GetNode<LineEdit>("ChestDescriptionInput");
 		_chestGrid = GetNode<GridContainer>("ScrollContainer/ChestGrid");
 		_contributeButton = GetNode<Button>("ContributeButton");
 
@@ -89,9 +97,7 @@ public partial class MapManager : Node
 		_langSelector.ItemSelected += OnLanguageSelected;
 		_helpButton.Pressed += OnHelpButtonPressed;
 
-		_contributeButton.Pressed += () => {
-			OS.ShellOpen("https://forms.gle/LtRSy7YnkKLxsHATA");
-		};
+		_contributeButton.Pressed += OnContributeButtonPressed;
 
 		// Настройка встроенных языковых пакетов Godot (Задаем переводы для ключей KEY_...)
 		SetupTranslationServer();
@@ -198,12 +204,26 @@ public partial class MapManager : Node
 		var auto = new[] { "Run auto-play", "Запустить авто-гру", "Uruchom auto-grę", "Auto-Play starten", "Запустити авто-гру" };
 		var search = new[] { "Chest searching", "Поиск сундука", "Wyszukiwanie skrzyń", "Truhensuche", "Пошук скрині" };
 		var hint = new[] { "Type chest location...", "Введите местоположение...", "Wpisz lokalizację skrzyni...", "Truhenstandort eingeben...", "Введіть місце розташування..." };
+		var chestDescription = new[] {
+		"Chest description",
+		"Описание сундука",
+		"Opis skrzyni",
+		"Truhenbeschreibung",
+		"Опис скрині"
+	};
+		var chestDescriptionHint = new[] {
+		"Type location and landmark...",
+		"Введите место и ориентир...",
+		"Wpisz miejsce i punkt orientacyjny...",
+		"Ort und Orientierungspunkt eingeben...",
+		"Введіть місце та орієнтир..."
+	};
 		var contr = new[] {
-		"Contribute a Chest",
-		"Добавить сундук в базу",
-		"Dodaj skrzynię do bazy",
-		"Truhe zur Datenbank hinzufügen",
-		"Додати скриню до бази"
+		"Add current configuration to database",
+		"Добавить текущую конфигурацию в базу",
+		"Dodaj bieżącą konfigurację do bazy",
+		"Aktuelle Konfiguration zur Datenbank hinzufügen",
+		"Додати поточну конфігурацію до бази"
 	};
 
 
@@ -297,6 +317,8 @@ public partial class MapManager : Node
 			tx.AddMessage("KEY_AUTOPLAY", auto[i]);
 			tx.AddMessage("KEY_SEARCH_TITLE", search[i]);
 			tx.AddMessage("KEY_SEARCH_HINT", hint[i]);
+			tx.AddMessage("KEY_CHEST_DESCRIPTION", chestDescription[i]);
+			tx.AddMessage("KEY_CHEST_DESCRIPTION_HINT", chestDescriptionHint[i]);
 			tx.AddMessage("KEY_CONTRIBUTE", contr[i]);
 
 			// 🔥 ИСПРАВЛЕНО: Строку Translation tx = new Translation(); мы отсюда УБРАЛИ.
@@ -389,6 +411,43 @@ public partial class MapManager : Node
 		_helpWindow.Title = _helpLoc[currentLocale].Item1;
 		_helpWindow.DialogText = _helpLoc[currentLocale].Item2;
 		_helpWindow.PopupCentered(); // Показываем окно по центру экрана
+	}
+
+	private void OnContributeButtonPressed()
+	{
+		string chestDescription = _chestDescriptionInput.Text.Trim();
+		int cellCount = (int)_cellCountInput.Value;
+		string startPositions = BuildCurrentStartPositions(cellCount);
+		string rules = _rulesInput.Text.Trim();
+
+		string url = CONTRIBUTE_FORM_URL +
+			"?usp=pp_url" +
+			BuildFormParameter(FORM_ENTRY_CHEST_DESCRIPTION, chestDescription) +
+			BuildFormParameter(FORM_ENTRY_CELL_COUNT, cellCount.ToString()) +
+			BuildFormParameter(FORM_ENTRY_START_POS, startPositions) +
+			BuildFormParameter(FORM_ENTRY_RULES, rules);
+
+		OS.ShellOpen(url);
+	}
+
+	private string BuildCurrentStartPositions(int cellCount)
+	{
+		List<string> values = new List<string>();
+		int activeCount = Math.Clamp(cellCount, 0, _mainSpinBoxes.Length);
+
+		for (int i = 0; i < activeCount; i++)
+		{
+			values.Add(((int)_mainSpinBoxes[i].Value).ToString());
+		}
+
+		return string.Join(",", values);
+	}
+
+	private string BuildFormParameter(string key, string value)
+	{
+		if (string.IsNullOrWhiteSpace(value)) return "";
+
+		return $"&{key}={Uri.EscapeDataString(value)}";
 	}
 
 
