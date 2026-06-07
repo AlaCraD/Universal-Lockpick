@@ -163,9 +163,10 @@ public partial class PuzzleSolver : Control
 				int capturedSlot = slotIndex;
 				int capturedValue = value;
 				CheckBox button = new CheckBox();
-				button.Text = value.ToString();
+				button.Text = "";
+				button.TooltipText = value.ToString();
 				button.ButtonGroup = groups[slotIndex];
-				button.CustomMinimumSize = new Vector2(42, 0);
+				button.CustomMinimumSize = new Vector2(28, 0);
 				button.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
 				button.Pressed += () => SetStartPositionValue(capturedSlot, capturedValue);
 				row.AddChild(button);
