@@ -628,7 +628,7 @@ public partial class MapManager : Node
 		rootNode.Call("UpdateStartPos", chest.CellCount, chest.StartPos);
 		//GD.Print(chest.StartPos);
 
-		_rulesInput.Text = chest.Rules;
+		rootNode.Call("LoadRulesFromDatabase", chest.Rules);
 
 		string logText = "Please look at your screen and fill current values manually.";
 

@@ -301,6 +301,12 @@ public partial class PuzzleSolver : Control
 		SyncLinkMatrixFromRulesText(newText);
 	}
 
+	public void LoadRulesFromDatabase(string rulesText)
+	{
+		_rulesInput.Text = rulesText;
+		SyncLinkMatrixFromRulesText(rulesText);
+	}
+
 	private void SyncLinkMatrixFromRulesText(string rulesText)
 	{
 		if (_linkMatrixGrid == null) return;
