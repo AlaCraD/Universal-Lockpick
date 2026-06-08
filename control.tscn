@@ -40,9 +40,8 @@ layout_mode = 2
 size_flags_horizontal = 4
 text = "KEY_TITLE"
 
-[node name="HBoxContainer" type="GridContainer" parent="VBoxContainer" unique_id=437970053]
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer" unique_id=437970053]
 layout_mode = 2
-columns = 6
 
 [node name="Label" type="Label" parent="VBoxContainer/HBoxContainer" unique_id=601835158]
 layout_mode = 2
@@ -53,6 +52,15 @@ layout_mode = 2
 min_value = 3.0
 max_value = 8.0
 value = 3.0
+
+[node name="Spacer" type="Control" parent="VBoxContainer/HBoxContainer" unique_id=192837465]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ResetButton" type="Button" parent="VBoxContainer/HBoxContainer" unique_id=1029928908]
+layout_mode = 2
+text = "KEY_RESET_CELLS"
+icon_alignment = 2
 
 [node name="Label3" type="Label" parent="VBoxContainer" unique_id=984355422]
 layout_mode = 2
@@ -94,10 +102,18 @@ max_value = 6.0
 layout_mode = 2
 max_value = 6.0
 
-[node name="Label2" type="Label" parent="VBoxContainer" unique_id=656877544]
+[node name="HBoxContainer2" type="HBoxContainer" parent="VBoxContainer" unique_id=759730094]
+layout_mode = 2
+
+[node name="Label2" type="Label" parent="VBoxContainer/HBoxContainer2" unique_id=656877544]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "KEY_RULES_HINT"
+
+[node name="ResetLinksButton" type="Button" parent="VBoxContainer/HBoxContainer2" unique_id=1029928909]
+layout_mode = 2
+text = "KEY_RESET_LINKS"
+icon_alignment = 2
 
 [node name="RulesInput" type="LineEdit" parent="VBoxContainer" unique_id=1200615322]
 layout_mode = 2
@@ -151,11 +167,11 @@ offset_right = 1382.0
 offset_bottom = 1064.0
 script = ExtResource("2_62e2m")
 
-[node name="ChestDescriptionLabel" type="Label" parent="VBoxContainer2"]
+[node name="ChestDescriptionLabel" type="Label" parent="VBoxContainer2" unique_id=1154704052]
 layout_mode = 2
 text = "KEY_CHEST_DESCRIPTION"
 
-[node name="ChestDescriptionInput" type="LineEdit" parent="VBoxContainer2"]
+[node name="ChestDescriptionInput" type="LineEdit" parent="VBoxContainer2" unique_id=2068446754]
 layout_mode = 2
 placeholder_text = "KEY_CHEST_DESCRIPTION_HINT"
 
@@ -173,9 +189,24 @@ layout_mode = 2
 placeholder_text = "KEY_SEARCH_HINT"
 
 [node name="ScrollContainer" type="ScrollContainer" parent="VBoxContainer2" unique_id=449464214]
-custom_minimum_size = Vector2(0, 608.52)
+custom_minimum_size = Vector2(0, 900)
 layout_mode = 2
 
-[node name="ChestGrid" type="GridContainer" parent="VBoxContainer2/ScrollContainer" unique_id=1916571902]
+[node name="BoxContainer" type="VBoxContainer" parent="VBoxContainer2/ScrollContainer" unique_id=1433440479]
+layout_mode = 2
+
+[node name="Label_full" type="Label" parent="VBoxContainer2/ScrollContainer/BoxContainer" unique_id=826428249]
+layout_mode = 2
+text = "KEY_FULL_CORRECT"
+
+[node name="ChestGrid_full" type="GridContainer" parent="VBoxContainer2/ScrollContainer/BoxContainer" unique_id=1916571902]
+layout_mode = 2
+columns = 3
+
+[node name="Label_almost" type="Label" parent="VBoxContainer2/ScrollContainer/BoxContainer" unique_id=1256708903]
+layout_mode = 2
+text = "KEY_ALMOST_CORRECT"
+
+[node name="ChestGrid_almost" type="GridContainer" parent="VBoxContainer2/ScrollContainer/BoxContainer" unique_id=856537440]
 layout_mode = 2
 columns = 3

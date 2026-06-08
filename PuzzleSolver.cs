@@ -213,7 +213,7 @@ public partial class PuzzleSolver : Control
 		int insertIndex = _rulesInput.GetIndex();
 
 		Label title = new Label();
-		title.Text = "СВЯЗИ ПОЛЗУНКОВ";
+		title.Text = TranslationServer.Translate("KEY_LINKS_TITLE");
 		title.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 		parent.AddChild(title);
 		parent.MoveChild(title, insertIndex);
@@ -304,17 +304,24 @@ public partial class PuzzleSolver : Control
 				Button btn = _linkButtons[row, col];
 				if (btn == null) continue;
 
+				// Diagonal cells are always blocked and shown as "ВМЕСТЕ".
 				int state = row == col ? 1 : _linkMatrix[row, col];
-				btn.Text = state == 1 ? "ВМЕСТЕ" : (state == -1 ? "ПРОТИВ" : "НЕТ");
+				if (state == 1)
+					btn.Text = TranslationServer.Translate("KEY_LINK_TOGETHER");
+				else if (state == -1)
+					btn.Text = TranslationServer.Translate("KEY_LINK_OPPOSITE");
+				else
+					btn.Text = TranslationServer.Translate("KEY_LINK_NONE");
+
 				btn.TooltipText = row == col
-					? "Диагональ заблокирована: ползунок всегда двигает сам себя."
-					: "Клик: НЕТ -> ВМЕСТЕ -> ПРОТИВ";
+					? TranslationServer.Translate("KEY_LINK_TOOLTIP_DIAG")
+					: TranslationServer.Translate("KEY_LINK_TOOLTIP_CLICK");
 
 				btn.RemoveThemeColorOverride("font_color");
 				btn.RemoveThemeColorOverride("font_disabled_color");
 				if (state == 1)
 				{
-					btn.AddThemeColorOverride(row == col ? "font_disabled_color" : "font_color", new Color(0.45f, 1.0f, 0.55f));
+						btn.AddThemeColorOverride(row == col ? "font_disabled_color" : "font_color", new Color(0.45f, 1.0f, 0.55f));
 				}
 				else if (state == -1)
 				{
@@ -344,6 +351,19 @@ public partial class PuzzleSolver : Control
 		}
 
 		RefreshLinkButtons(activeCount);
+	}
+
+	public void ResetAllLinks()
+	{
+		// Clear all non-diagonal links to 0 ("НЕТ") and ensure diagonal stays as 1 (blocked)
+		Array.Clear(_linkMatrix, 0, _linkMatrix.Length);
+		int activeCount = (int)_cellCountInput.Value;
+		for (int i = 0; i < activeCount; i++)
+		{
+			_linkMatrix[i, i] = 1;
+		}
+		RefreshLinkButtons(activeCount);
+		SyncRulesTextFromLinkMatrix();
 	}
 
 	private void SetDefaultStartPositions()
@@ -473,7 +493,7 @@ public partial class PuzzleSolver : Control
 
 		// Включаем режим работы автоплея
 		_isAutoplayRunning = true;
-		_autoplayButton.Text = "[ STOP AUTO-PLAY ]";
+		_autoplayButton.Text = TranslationServer.Translate("KEY_STOP_AUTOPLAY");
 		_autoplayButton.AddThemeColorOverride("font_color", new Color(1, 0.3f, 0.3f)); // Красный текст кнопки
 
 		// Создаем новый токен отмены для этой сессии
@@ -597,7 +617,7 @@ public partial class PuzzleSolver : Control
 	private void ResetAutoplayButtonState()
 	{
 		_isAutoplayRunning = false;
-		_autoplayButton.Text = "Run auto-play";
+		_autoplayButton.Text = TranslationServer.Translate("KEY_AUTOPLAY");
 		_autoplayButton.RemoveThemeColorOverride("font_color"); // Возвращаем дефолтный цвет текста
 		_cts?.Dispose();
 		_cts = null;
