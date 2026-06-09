@@ -394,9 +394,65 @@ public partial class MapManager : Node
 		var errBlindMode = new[] {
 		"ERROR: Process '{0}.exe' found, but window is hidden!\n[SYSTEM] Continuing in blind mode. Click on the game window now...",
 		"ОШИБКА: Процесс '{0}.exe' найден, но его окно скрыто!\n[СИСТЕМА] Продолжение в слепом режиме. Пожалуйста, кликните по окну игры сейчас...",
-		"BŁĄD: Proces '{0}.exe' został znaleziony, ale jego okno jest ukryte!\n[SYSTEM] Kontynuacja в trybie ślepym. Kliknij teraz na okno gry...",
+		"BŁĄD: Proces '{0}.exe' został znaleziony, ale jego okno jest ukryte!\n[SYSTEM] Kontynuacja w trybie ślepym. Kliknij teraz na okno gry...",
 		"FEHLER: Prozess '{0}.exe' gefunden, aber das Fenster ist ausgeblendet!\n[SYSTEM] Weiter im Blindmodus. Klicken Sie jetzt auf das Spielfenster...",
 		"ПОМИЛКА: Процес '{0}.exe' знайдено, але його вікно приховано!\n[СИСТЕМА] Продовження в сліпому режимі. Будь ласка, клікніть по вікну гри зараз..."
+	};
+
+		var logParsingError = new[] {
+		"Parsing error: {0}",
+		"Ошибка разбора: {0}",
+		"Błąd parsowania: {0}",
+		"Analysefehler: {0}",
+		"Помилка розбору: {0}"
+	};
+
+		var errRulesMissingColon = new[] {
+		"ERROR in command '{0}': Missing colon ':'",
+		"ОШИБКА в команде '{0}': отсутствует двоеточие ':'",
+		"BŁĄD w poleceniu '{0}': brakuje dwukropka ':'",
+		"FEHLER im Befehl '{0}': Doppelpunkt ':' fehlt",
+		"ПОМИЛКА в команді '{0}': відсутній двокрапка ':'"
+	};
+
+		var errUnknownLetter = new[] {
+		"ERROR: Unknown letter '{0}'.",
+		"ОШИБКА: Неизвестная буква '{0}'.",
+		"BŁĄD: Nieznana litera '{0}'.",
+		"FEHLER: Unbekannter Buchstabe '{0}'.",
+		"ПОМИЛКА: Невідома буква '{0}'."
+	};
+
+		var errEmptyRule = new[] {
+		"ERROR in block '{0}': Empty rule.",
+		"ОШИБКА в блоке '{0}': пустое правило.",
+		"BŁĄD w bloku '{0}': pusta reguła.",
+		"FEHLER im Block '{0}': leere Regel.",
+		"ПОМИЛКА в блоці '{0}': порожнє правило."
+	};
+
+		var errInvalidCell = new[] {
+		"ERROR: Invalid cell '{0}' in rule '{1}'.",
+		"ОШИБКА: Неверная ячейка '{0}' в правиле '{1}'.",
+		"BŁĄD: Nieprawidłowa komórka '{0}' w regule '{1}'.",
+		"FEHLER: Ungültige Zelle '{0}' in Regel '{1}'.",
+		"ПОМИЛКА: Неправильна комірка '{0}' у правилі '{1}'."
+	};
+
+		var errInvalidSign = new[] {
+		"ERROR: Invalid sign '{0}' in rule '{1}'.",
+		"ОШИБКА: Неверный знак '{0}' в правиле '{1}'.",
+		"BŁĄD: Nieprawidłowy znak '{0}' w regule '{1}'.",
+		"FEHLER: Ungültiges Zeichen '{0}' in Regel '{1}'.",
+		"ПОМИЛКА: Неправильний знак '{0}' у правилі '{1}'."
+	};
+
+		var matrixPinLabel = new[] {
+		"P",
+		"П",
+		"P",
+		"P",
+		"П"
 	};
 
 		// Перевод заголовка успешно сгенерированного плана взлома
@@ -464,6 +520,13 @@ public partial class MapManager : Node
 			tx.AddMessage("LOG_WINDOW_FOCUSED", logWindowFocused[i]);
 			tx.AddMessage("ERR_BLIND_MODE", errBlindMode[i]);
 			tx.AddMessage("LOG_PLAN_GENERATED", logPlanGenerated[i]);
+			tx.AddMessage("ERR_PARSING", logParsingError[i]);
+			tx.AddMessage("ERR_RULES_MISSING_COLON", errRulesMissingColon[i]);
+			tx.AddMessage("ERR_UNKNOWN_LETTER", errUnknownLetter[i]);
+			tx.AddMessage("ERR_EMPTY_RULE", errEmptyRule[i]);
+			tx.AddMessage("ERR_INVALID_CELL", errInvalidCell[i]);
+			tx.AddMessage("ERR_INVALID_SIGN", errInvalidSign[i]);
+			tx.AddMessage("KEY_MATRIX_PIN_LABEL", matrixPinLabel[i]);
 
 			// Эта строчка у вас тоже уже была в самом конце оригинального цикла, 
 			// поэтому вторую такую же из моего куска кода нужно удалить:
@@ -498,6 +561,7 @@ public partial class MapManager : Node
 
 		// Переключаем системную локализацию Godot на сохраненный язык
 		TranslationServer.SetLocale(lang);
+		RefreshPuzzleSolverTranslations();
 	}
 
 	private void OnLanguageSelected(long index)
@@ -517,6 +581,7 @@ public partial class MapManager : Node
 
 		// Обновляем тексты всех статических элементов UI сразу
 		ApplyTranslationsToScene();
+		RefreshPuzzleSolverTranslations();
 
 		// 2. ЗАПИСЫВАЕМ ВЫБОР В SETTINGS.INI (Автосохранение)
 		var config = new ConfigFile();
@@ -562,6 +627,12 @@ public partial class MapManager : Node
 		// Reset buttons (ensure they reflect translations)
 		_resetButton.Text = TranslationServer.Translate("KEY_RESET_CELLS");
 		_resetLinksButton.Text = TranslationServer.Translate("KEY_RESET_LINKS");
+	}
+
+	private void RefreshPuzzleSolverTranslations()
+	{
+		var rootNode = GetTree().Root.GetChild(0) as PuzzleSolver;
+		rootNode?.RefreshLinkMatrixTranslations();
 	}
 
 	private void OnHelpButtonPressed()

@@ -46,6 +46,7 @@ public partial class PuzzleSolver : Control
 	private Label _resultLabel;
 	private ScrollContainer _linkMatrixScroll;
 	private GridContainer _linkMatrixGrid;
+	private Label _linkMatrixTitle;
 	private Button[,] _linkButtons;
 
 	private readonly string[] _names = { "A", "B", "C", "D", "E", "F", "G", "H" };
@@ -217,6 +218,7 @@ public partial class PuzzleSolver : Control
 		title.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 		parent.AddChild(title);
 		parent.MoveChild(title, insertIndex);
+		_linkMatrixTitle = title;
 
 		_linkMatrixScroll = new ScrollContainer();
 		_linkMatrixScroll.CustomMinimumSize = new Vector2(0, 350);
@@ -329,6 +331,15 @@ public partial class PuzzleSolver : Control
 				}
 			}
 		}
+	}
+
+	public void RefreshLinkMatrixTranslations()
+	{
+		if (_linkMatrixTitle != null)
+			_linkMatrixTitle.Text = TranslationServer.Translate("KEY_LINKS_TITLE");
+
+		if (_cellCountInput != null)
+			RefreshLinkButtons((int)_cellCountInput.Value);
 	}
 
 	private void SetDefaultLinkMatrix(int activeCount)
